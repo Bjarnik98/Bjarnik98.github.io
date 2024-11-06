@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EA 6 - Objekte bewegen - fliegende Kugeln</title>
+    <script src="ext/gl-matrix.js"></script>
+    <script src="GVT_Src_vertexData_sphere.js"></script>
+    <script src="GVT_Src_vertexData_torus.js"></script>
+    <script src="GVT_Src_vertexData_plane.js"></script>
+    <script src="TFM_Src_tpl.js"></script>
+    <script type="x-shader/x-vertex" id="vertexshader">
+        attribute vec3 aPosition;
+        attribute vec3 aNormal;
+        uniform mat4 uPMatrix;
+        uniform mat4 uMVMatrix;
+        uniform mat3 uNMatrix;
+        varying vec4 vColor;
+        uniform vec4 uColor;
+
+        void main() {
+            gl_Position = uPMatrix * uMVMatrix * vec4(aPosition, 1.0);
+            vColor = vec4(aNormal.z, aNormal.z, aNormal.z, 1.0);
+            vColor = uColor * (vColor + 1.0) / 2.0;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fragmentshader">
+        precision mediump float;
+        varying vec4 vColor;
+
+        void main() {
+            gl_FragColor = vColor;
+        }
+    </script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            max-width: 270px;
+            z-index: 10;
+        }
+
+        #controls h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #ffcc00;
+        }
+
+        #controls p {
+            margin: 8px 0;
+        }
+
+        #controls .author {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #bbb;
+        }
+    </style>
+</head>
+<body onload="initApp()">
+    <canvas id="canvas"></canvas>
+
+    <div id="controls">
+        <h3>EA 6 - Objekte bewegen</h3>
+
+        <p><b>K: </b> Animation ein-/ausschalten</p>
+        <p><b>X/Y/Z:</b> Torus drehen</p>
+        <p><b>(SHIFT) + C:</b> Kamera drehen</p>
+        <p><b>(SHIFT) + D/V/H:</b> Kamera bewegen</p>
+        <p><b>Weitere Belegungen:</b> Siehe Übung</p>
+        <p class="author">Autor: Bjarne Niklas Luttermann (THL)</p>
+    </div>
+
+    <script>
+        function initApp() {
+            const canvas = document.getElementById('canvas');
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+            canvas.style.width = "100vw";
+            canvas.style.height = "100vh";
+
+            const gl = canvas.getContext('webgl');
+            if (gl) {
+                gl.viewport(0, 0, canvas.width, canvas.height);
+            }
+
+            app.start();
+        }
+    </script>
+
+    <script src="app.js"></script>
+</body>
+</html>
