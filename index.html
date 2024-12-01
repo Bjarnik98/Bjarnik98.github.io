@@ -3,116 +3,173 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EA 6: Objekte bewegen - fliegende Kugeln</title>
+    <title>EA 8 - Lichter auf einer Kreisbahn mit Toon Shading</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; overflow: hidden; font-family: Arial, sans-serif; background-color: #1e1e1e; }
+        canvas { width: 100vw; height: 100vh; display: block; }
+
+        #overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #f5f5f5;
+            background-color: rgba(30, 30, 30, 0.85);
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            width: 380px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5);
+        }
+        #overlay h2 { 
+            font-size: 24px; 
+            margin-bottom: 12px; 
+            font-weight: bold;
+            color: #007acc;
+        }
+        #overlay p {
+            margin: 8px 0;
+            line-height: 1.4;
+        }
+
+        .control {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #b0bec5;
+        }
+
+        #author {
+            font-size: 12px;
+            color: #90a4ae;
+            margin-top: 15px;
+            font-style: italic;
+        }
+
+        #textureToggle {
+            background: #007acc;
+            color: white;
+            padding: 10px 15px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.3s;
+            width: 100%;
+        }
+        #textureToggle:hover {
+            background: #005f99;
+        }
+    </style>
     <script src="ext/gl-matrix.js"></script>
+    <script src="GVT_Src_vertexData_plane.js"></script>
     <script src="GVT_Src_vertexData_sphere.js"></script>
     <script src="GVT_Src_vertexData_torus.js"></script>
-    <script src="GVT_Src_vertexData_plane.js"></script>
-    <script src="TFM_Src_tpl.js"></script>
+    <script src="BEL_Src_tpl.js"></script>
     <script type="x-shader/x-vertex" id="vertexshader">
         attribute vec3 aPosition;
         attribute vec3 aNormal;
+        
         uniform mat4 uPMatrix;
         uniform mat4 uMVMatrix;
         uniform mat3 uNMatrix;
+
         varying vec4 vColor;
-        uniform vec4 uColor;
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        varying vec3 vLightDir1;
+        varying vec3 vLightDir2;
+        varying vec3 vLightColor1;
+        varying vec3 vLightColor2;
+        
+        uniform vec3 ambientLight;
+        
+        const int MAX_LIGHT_SOURCES = 8;
+        struct LightSource {
+            bool isOn;
+            vec3 position;
+            vec3 color;
+        };
+        uniform LightSource light[MAX_LIGHT_SOURCES];
+        
+        struct PhongMaterial {
+            vec3 ka;
+            vec3 kd;
+            vec3 ks;
+            float ke; 
+        };
+        uniform PhongMaterial material;
 
         void main() {
-            gl_Position = uPMatrix * uMVMatrix * vec4(aPosition, 1.0);
-            vColor = vec4(aNormal.z, aNormal.z, aNormal.z, 1.0);
-            vColor = uColor * (vColor + 1.0) / 2.0;
+            vec4 tPosition = uMVMatrix * vec4(aPosition, 1.0);
+            gl_Position = uPMatrix * tPosition;
+
+            vNormal = normalize(uNMatrix * aNormal);
+            vViewDir = normalize(-tPosition.xyz);
+
+            if(light[0].isOn) {
+                vLightDir1 = normalize(light[0].position - tPosition.xyz);
+                vLightColor1 = light[0].color;
+            }
+            if(light[1].isOn) {
+                vLightDir2 = normalize(light[1].position - tPosition.xyz);
+                vLightColor2 = light[1].color;
+            }
+            
+            vColor = vec4(material.kd, 1.0);
         }
     </script>
     <script type="x-shader/x-fragment" id="fragmentshader">
         precision mediump float;
+        
         varying vec4 vColor;
-
+        varying vec3 vNormal;
+        varying vec3 vViewDir;
+        varying vec3 vLightDir1;
+        varying vec3 vLightDir2;
+        varying vec3 vLightColor1;
+        varying vec3 vLightColor2;
+        
+        float toonShading(float dotProduct) {
+            if (dotProduct > 0.95) return 1.0;
+            else if (dotProduct > 0.5) return 0.7;
+            else if (dotProduct > 0.25) return 0.4;
+            else return 0.1;
+        }
+        
+        float outline(float dotProduct) {
+            return (dotProduct < 0.2) ? 0.0 : 1.0;
+        }
+        
         void main() {
-            gl_FragColor = vColor;
+            vec3 normal = normalize(vNormal);
+            vec3 viewDir = normalize(vViewDir);
+            
+            float diffuse1 = max(dot(normal, normalize(vLightDir1)), 0.0);
+            float toonDiffuse1 = toonShading(diffuse1);
+            vec3 toonColor1 = vLightColor1 * toonDiffuse1;
+            
+            float diffuse2 = max(dot(normal, normalize(vLightDir2)), 0.0);
+            float toonDiffuse2 = toonShading(diffuse2);
+            vec3 toonColor2 = vLightColor2 * toonDiffuse2;
+            
+            float rim = outline(dot(normal, viewDir));
+            
+            vec3 combinedLight = toonColor1 + toonColor2;
+            
+            vec3 finalColor = vColor.rgb * combinedLight * rim;
+
+            gl_FragColor = vec4(finalColor, 1.0);
         }
     </script>
-    <style>
-        body, html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        #canvas {
-            width: 100vw;
-            height: 100vh;
-            display: block;
-        }
-
-        #controls {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            max-width: 270px;
-            z-index: 10;
-        }
-
-        #controls h3 {
-            margin: 0 0 10px 0;
-            font-size: 16px;
-            color: #ffcc00;
-        }
-
-        #controls p {
-            margin: 8px 0;
-        }
-
-        #controls .author {
-            margin-top: 15px;
-            font-size: 12px;
-            color: #bbb;
-        }
-    </style>
 </head>
-<body onload="initApp()">
-    <canvas id="canvas"></canvas>
-
-    <div id="controls">
-        <h3>EA 6 - Objekte bewegen</h3>
-
-        <p><b>K: </b> Animation ein-/ausschalten</p>
-        <p><b>X/Y/Z:</b> Torus drehen</p>
-        <p><b>(SHIFT) + C:</b> Kamera drehen</p>
-        <p><b>(SHIFT) + D/V/H:</b> Kamera bewegen</p>
-        <p><b>Weitere Belegungen:</b> Siehe Übung</p>
-        <p class="author">Autor: Bjarne Niklas Luttermann (THL)</p>
+<body onload="app.start()">
+    <canvas id="canvas" width="700" height="500"></canvas>
+    <div id="overlay">
+        <h2>EA 8 - Lichter auf einer Kreisbahn mit Toon Shading</h2>
+        <p class="control"><strong>L:</strong> Lichter bewegen</p>
+        <p class="control"><strong>Weitere Belegungen:</strong> Siehe Übung</p>
+        <p id="author">Autor: Bjarne Niklas Luttermann (THL)</p>
     </div>
-
-    <script>
-        function initApp() {
-            const canvas = document.getElementById('canvas');
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = window.innerWidth * dpr;
-            canvas.height = window.innerHeight * dpr;
-            canvas.style.width = "100vw";
-            canvas.style.height = "100vh";
-
-            const gl = canvas.getContext('webgl');
-            if (gl) {
-                gl.viewport(0, 0, canvas.width, canvas.height);
-            }
-
-            app.start();
-        }
-    </script>
-
-    <script src="app.js"></script>
 </body>
 </html>
